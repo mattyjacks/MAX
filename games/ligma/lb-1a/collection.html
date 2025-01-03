@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emoji Collection</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #1a1a1a;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        #back-button {
+            color: white;
+            text-decoration: none;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 18px;
+        }
+        #back-button:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        .collection-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+            gap: 10px;
+            padding: 20px;
+        }
+        .emoji-item {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            font-size: 24px;
+        }
+        .emoji-item.uncollected {
+            background: rgba(255, 255, 255, 0.05);
+            color: rgba(255, 255, 255, 0.2);
+        }
+        .stats {
+            text-align: center;
+            font-size: 20px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Emoji Collection</h1>
+        <a href="index.html" id="back-button">Back to Game</a>
+    </div>
+    <div class="stats" id="collection-stats"></div>
+    <div class="collection-grid" id="collection-grid"></div>
+    <script>
+        const collectionGrid = document.getElementById('collection-grid');
+        const collectionStats = document.getElementById('collection-stats');
+        
+        function updateCollection() {
+            const collection = JSON.parse(localStorage.getItem('emojiCollection') || '{}');
+            const allEmojis = JSON.parse(localStorage.getItem('allEmojis') || '[]');
+            
+            collectionGrid.innerHTML = '';
+            allEmojis.forEach(emoji => {
+                const div = document.createElement('div');
+                div.className = `emoji-item ${collection[emoji] ? 'collected' : 'uncollected'}`;
+                div.textContent = collection[emoji] ? emoji : '?';
+                collectionGrid.appendChild(div);
+            });
+
+            const collected = Object.keys(collection).length;
+            const total = allEmojis.length;
+            collectionStats.textContent = `Collected: ${collected}/${total} (${Math.round(collected/total*100)}%)`;
+        }
+
+        updateCollection();
+    </script>
+</body>
+</html>

@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- Enhanced Security Headers -->
+    <meta http-equiv="Content-Security-Policy" 
+          content="default-src 'self'; 
+                   script-src 'self' 'unsafe-inline' 'unsafe-eval';
+                   style-src 'self' 'unsafe-inline'; 
+                   img-src 'self' data: blob:; 
+                   connect-src 'self';
+                   form-action 'none';
+                   base-uri 'none';
+                   object-src 'none';">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="Referrer-Policy" content="no-referrer">
+    <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin">
+    <meta http-equiv="Cross-Origin-Embedder-Policy" content="require-corp">
+    <meta http-equiv="Cross-Origin-Resource-Policy" content="same-origin">
+    
+    <title>2D Platformer</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            border: 2px solid #333;
+            display: none;
+        }
+        #tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+            pointer-events: none;
+            z-index: 1000;
+        }
+        #powerups {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        #stats {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: right;
+        }
+        #gameUI {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 24px;
+            text-shadow: 2px 2px 2px rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+        .health-bar {
+            width: 200px;
+            height: 20px;
+            background: #333;
+            border: 2px solid #666;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        .health-bar-fill {
+            width: 100%;
+            height: 100%;
+            background: #4CAF50;
+            transition: width 0.3s ease;
+        }
+        #credits {
+            position: absolute;
+            bottom: 10px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+        }
+        #credits a {
+            color: #4CAF50;
+            text-decoration: none;
+        }
+        #credits a:hover {
+            text-decoration: underline;
+        }
+        #upgradeMenu {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            color: white;
+            z-index: 2000;
+            width: 600px;
+        }
+        .upgrade-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .upgrade-item {
+            background: #333;
+            padding: 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .upgrade-item:hover {
+            background: #444;
+        }
+        .upgrade-item.selected {
+            background: #4CAF50;
+        }
+        .upgrade-item h3 {
+            margin: 0 0 10px 0;
+            color: #4CAF50;
+        }
+        .upgrade-item.selected h3 {
+            color: white;
+        }
+        #confirmUpgrade {
+            background: #4CAF50;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 20px;
+        }
+        #confirmUpgrade:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        #startScreen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 40px;
+            border-radius: 10px;
+            text-align: center;
+            color: white;
+            z-index: 3000;
+        }
+        #startButton {
+            background: #4CAF50;
+            border: none;
+            color: white;
+            padding: 15px 30px;
+            font-size: 18px;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-top: 20px;
+            transition: background 0.2s;
+        }
+        #startButton:hover {
+            background: #45a049;
+        }
+        .controls {
+            margin-top: 20px;
+            text-align: left;
+            background: rgba(70, 70, 70, 0.3);
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .controls h3 {
+            margin-top: 0;
+            color: #4CAF50;
+        }
+    </style>
+</head>
+<body>
+    <div id="startScreen">
+        <h1>Light Rogue</h1>
+        <div id="loadingText">Loading assets... <span id="loadingProgress">0</span>%</div>
+        <div class="controls" style="display: none;">
+            <h3>Controls</h3>
+            <p>WASD - Move and Jump</p>
+            <p>Mouse - Aim and Shoot</p>
+            <p>E - Pick up weapons</p>
+            <p>R - Reload</p>
+        </div>
+        <button id="startButton" style="display: none;">Start Game</button>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+    <div id="tooltip"></div>
+    <div id="powerups"></div>
+    <div id="stats">
+        <div id="gameUI">Level: <span id="level">1</span> Score: <span id="score">0</span></div>
+        <div>Health: <span id="health">100</span></div>
+        <div class="health-bar">
+            <div class="health-bar-fill"></div>
+        </div>
+    </div>
+    <div id="upgradeMenu">
+        <h2>Level Complete! Choose an Upgrade</h2>
+        <div class="upgrade-grid">
+            <!-- Upgrade items will be added dynamically -->
+        </div>
+        <button id="confirmUpgrade" disabled>Confirm Upgrade</button>
+    </div>
+    <div id="credits">
+        Sound by <a href="https://ZapSplat.com" target="_blank">ZapSplat</a>
+    </div>
+    <!-- Audio elements -->
+    <audio id="jumpSound" src="../assets/sound/zapsplat_multimedia_game_sound_arcade_jump_112217.mp3" preload="auto"></audio>
+    <audio id="shootSound" src="../assets/sound/zapsplat_cartoon_anime_laser_blast_small_92470.mp3" preload="auto"></audio>
+    <audio id="zombieSound" src="../assets/sound/horror_monster_ill_or_dying_moan.mp3" preload="auto"></audio>
+    <script type="module">
+        // Generate runtime nonce for inline scripts
+        const nonce = crypto.getRandomValues(new Uint8Array(16)).reduce((acc, val) => acc + val.toString(16).padStart(2, '0'), '');
+        document.querySelector('meta[http-equiv="Content-Security-Policy"]').setAttribute('content', 
+            document.querySelector('meta[http-equiv="Content-Security-Policy"]').getAttribute('content').replace('${nonce}', nonce));
+    </script>
+    <script type="module" nonce="${nonce}">
+        // Create and load all game images before starting
+        const enemyImages = [];
+        const gunImages = {
+            pistol: [],
+            shotgun: [],
+            smg: [],
+            assaultrifle: [],
+            sniperrifle: []
+        };
+
+        let loadedImages = 0;
+        const totalImages = 39 + 33; // 39 enemy images + 33 gun images
+        
+        function updateLoadingProgress() {
+            loadedImages++;
+            const progress = Math.floor((loadedImages / totalImages) * 100);
+            document.getElementById('loadingProgress').textContent = progress;
+            
+            if (loadedImages === totalImages) {
+                document.getElementById('loadingText').style.display = 'none';
+                document.getElementById('startButton').style.display = 'block';
+                document.querySelector('.controls').style.display = 'block';
+            }
+        }
+
+        function loadImage(src) {
+            const img = new Image();
+            img.onload = updateLoadingProgress;
+            img.onerror = () => {
+                console.warn('Failed to load:', src);
+                updateLoadingProgress(); // Still count errors to avoid getting stuck
+            };
+            img.src = src;
+            return img;
+        }
+
+        // Load enemy images
+        const enemyTypes = {
+            'A': [1,2,3,4,5,6,7,8,9,10],
+            'B': [1,2,3,4,5,6,7,8,9,10],
+            'C': [1,2,3,5,6,7,8,9,10], // C4 is missing
+            'D': [1,2,3,4,5,6,7,8,9,10]
+        };
+
+        for (const [color, numbers] of Object.entries(enemyTypes)) {
+            for (const num of numbers) {
+                const img = loadImage(`../assets/enemies/Undead Monsters Color ${color}${num}.png`);
+                enemyImages.push(img);
+            }
+        }
+
+        // Load gun images
+        const gunTypes = {
+            pistol: 12,
+            shotgun: 7,
+            smg: 2,
+            assaultrifle: 6,
+            sniperrifle: 6
+        };
+
+        for (const [type, count] of Object.entries(gunTypes)) {
+            for (let i = 1; i <= count; i++) {
+                const img = loadImage(`../assets/guns/${type}${i}.png`);
+                gunImages[type].push(img);
+            }
+        }
+
+        // Make images available to game.js
+        window.gameAssets = {
+            enemyImages,
+            gunImages
+        };
+
+        // Initialize error handling
+        window.onerror = function(msg, url, lineNo, columnNo, error) {
+            document.getElementById('error-boundary').hidden = false;
+            document.getElementById('game-container').hidden = true;
+            console.error('Error: ', msg, url, lineNo, columnNo, error);
+            return false;
+        };
+
+        // Anti-debugging measures
+        const debugProtection = {
+            isDebuggerPresent: function() {
+                const startTime = performance.now();
+                debugger;
+                return performance.now() - startTime > 100;
+            },
+            
+            checkConsole: function() {
+                const div = document.createElement('div');
+                Object.defineProperty(div, 'id', {
+                    get: function() {
+                        debugProtection.detected();
+                        return 'id';
+                    }
+                });
+                console.log(div);
+            },
+            
+            detected: function() {
+                window.location.reload();
+            }
+        };
+
+        // Periodic security checks
+        setInterval(() => {
+            if (debugProtection.isDebuggerPresent()) {
+                debugProtection.detected();
+            }
+            debugProtection.checkConsole();
+        }, 1000);
+
+        // Secure imports with dynamic import() for better tree-shaking
+        try {
+            const gameController = await import('./gameController.js?v=' + new Date().getTime());
+            const game = await import('./game.js?v=' + new Date().getTime());
+            
+            // Initialize game with security context
+            const securityContext = {
+                timestamp: Date.now(),
+                nonce: nonce,
+                verifyIntegrity: function(data) {
+                    // Implement integrity checks for game data
+                    return typeof data === 'object' && 
+                           !Array.isArray(data) && 
+                           Object.keys(data).every(key => typeof key === 'string');
+                }
+            };
+
+            // Initialize controller with security context
+            const controller = new gameController.default(securityContext);
+            
+            // Initialize game with security context
+            game.default.init(controller, securityContext);
+            
+            // Remove loading state
+            document.getElementById('game-container').dataset.state = 'ready';
+        } catch (error) {
+            console.error('Failed to initialize game:', error);
+            document.getElementById('error-boundary').hidden = false;
+            document.getElementById('game-container').hidden = true;
+        }
+    </script>
+    <script src="finalboss.js" defer></script>
+    <script src="test.js" defer></script>
+</body>
+</html>

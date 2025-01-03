@@ -14,6 +14,7 @@
         }
         canvas {
             border: 2px solid #333;
+            display: none;
         }
         #tooltip {
             position: absolute;
@@ -71,9 +72,123 @@
         #credits a:hover {
             text-decoration: underline;
         }
+        #upgradeMenu {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            color: white;
+            font-family: Arial, sans-serif;
+            display: none;
+            z-index: 2000;
+            width: 600px;
+        }
+        .upgrade-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .upgrade-item {
+            background: rgba(70, 70, 70, 0.8);
+            padding: 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+            text-align: center;
+        }
+        .upgrade-item:hover {
+            background: rgba(100, 100, 100, 0.8);
+        }
+        .upgrade-item.selected {
+            background: #4CAF50;
+        }
+        .upgrade-item h3 {
+            margin: 0 0 10px 0;
+            color: #4CAF50;
+        }
+        .upgrade-item.selected h3 {
+            color: white;
+        }
+        .upgrade-item p {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        #confirmUpgrade {
+            display: block;
+            width: 200px;
+            margin: 20px auto 0;
+            padding: 10px;
+            background: #4CAF50;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        #confirmUpgrade:hover {
+            background: #45a049;
+        }
+        #confirmUpgrade:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        #startScreen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 40px;
+            border-radius: 10px;
+            text-align: center;
+            color: white;
+            font-family: Arial, sans-serif;
+            z-index: 3000;
+        }
+        #startButton {
+            background: #4CAF50;
+            border: none;
+            color: white;
+            padding: 15px 30px;
+            font-size: 18px;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-top: 20px;
+            transition: background 0.2s;
+        }
+        #startButton:hover {
+            background: #45a049;
+        }
+        .controls {
+            margin-top: 20px;
+            text-align: left;
+            background: rgba(70, 70, 70, 0.3);
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .controls h3 {
+            margin-top: 0;
+            color: #4CAF50;
+        }
     </style>
 </head>
 <body>
+    <div id="startScreen">
+        <h1>Light Rogue</h1>
+        <div class="controls">
+            <h3>Controls</h3>
+            <p>WASD - Move and Jump</p>
+            <p>Mouse - Aim and Shoot</p>
+            <p>E - Pick up weapons</p>
+            <p>R - Reload</p>
+        </div>
+        <button id="startButton">Start Game</button>
+    </div>
     <canvas id="gameCanvas"></canvas>
     <div id="tooltip"></div>
     <div id="powerups"></div>
@@ -84,6 +199,13 @@
         <div class="health-bar">
             <div class="health-bar-fill"></div>
         </div>
+    </div>
+    <div id="upgradeMenu">
+        <h2>Level Complete! Choose an Upgrade</h2>
+        <div class="upgrade-grid">
+            <!-- Upgrade items will be added dynamically -->
+        </div>
+        <button id="confirmUpgrade" disabled>Confirm Upgrade</button>
     </div>
     <div id="credits">
         Sound by <a href="https://ZapSplat.com" target="_blank">ZapSplat</a>

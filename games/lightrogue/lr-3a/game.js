@@ -5,6 +5,11 @@ const levelElement = document.getElementById('level');
 const scoreElement = document.getElementById('score');
 const healthElement = document.getElementById('health');
 const healthBarFill = document.querySelector('.health-bar-fill');
+const upgradeMenu = document.getElementById('upgradeMenu');
+const upgradeGrid = document.querySelector('.upgrade-grid');
+const confirmUpgradeBtn = document.getElementById('confirmUpgrade');
+const startScreen = document.getElementById('startScreen');
+const startButton = document.getElementById('startButton');
 
 // Set canvas size
 canvas.width = 800;
@@ -13,15 +18,68 @@ canvas.height = 600;
 // Game state
 let level = 1;
 let score = 0;
-let isGameRunning = true;
-let gameObjects = {
-    player: null,
-    zombies: [],
-    bullets: [],
-    droppedGuns: [],
-    platforms: [],
-    powerups: []
+let isGameRunning = false;
+let selectedUpgrade = null;
+let isUpgradeMenuActive = false;
+let audioInitialized = false;
+let gameStarted = false;
+let mouseX = 0;
+let mouseY = 0;
+let damageNumbers = [];
+
+// Track mouse position
+canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    mouseX = e.clientX - rect.left;
+    mouseY = e.clientY - rect.top;
+});
+
+// Audio elements
+const audioElements = {
+    jump: document.getElementById('jumpSound'),
+    shoot: document.getElementById('shootSound'),
+    zombie: document.getElementById('zombieSound')
 };
+
+// Initialize audio
+function initializeAudio() {
+    if (audioInitialized) return;
+    
+    // Set volume for all audio elements
+    Object.values(audioElements).forEach(audio => {
+        audio.volume = 0.3;
+        // Create a promise that resolves when the audio can play
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+            playPromise.then(() => {
+                audio.pause();
+                audio.currentTime = 0;
+            }).catch(error => {
+                console.log("Audio play failed, but that's okay for initialization:", error);
+            });
+        }
+    });
+    
+    audioInitialized = true;
+}
+
+// Play sound with error handling
+function playSound(soundName) {
+    if (!audioInitialized) return;
+    
+    const audio = audioElements[soundName];
+    if (!audio) return;
+
+    // Reset and play
+    audio.currentTime = 0;
+    const playPromise = audio.play();
+    
+    if (playPromise !== undefined) {
+        playPromise.catch(error => {
+            console.log("Sound play failed:", error);
+        });
+    }
+}
 
 // Platform configuration
 const PLATFORMS = {
@@ -124,34 +182,15 @@ const PowerUpTypes = {
     }
 };
 
-// Sound effects with volume adjustment
-const sounds = {
-    jump: document.getElementById('jumpSound'),
-    shoot: document.getElementById('shootSound'),
-    zombie: document.getElementById('zombieSound')
+// Game objects
+let gameObjects = {
+    player: null,
+    zombies: [],
+    bullets: [],
+    droppedGuns: [],
+    platforms: [],
+    powerups: []
 };
-
-// Adjust volume for each sound
-Object.values(sounds).forEach(sound => {
-    sound.volume = 0.3; // 30% volume
-});
-
-// Add cooldown to zombie sound to prevent spam
-let lastZombieSound = 0;
-const ZOMBIE_SOUND_COOLDOWN = 2000; // 2 seconds
-
-function playSound(sound) {
-    const audio = sounds[sound];
-    if (audio) {
-        if (sound === 'zombie') {
-            const now = Date.now();
-            if (now - lastZombieSound < ZOMBIE_SOUND_COOLDOWN) return;
-            lastZombieSound = now;
-        }
-        audio.currentTime = 0;
-        audio.play().catch(e => console.log('Audio play failed:', e));
-    }
-}
 
 // Enhanced Particle System
 class ParticleSystem {
@@ -251,10 +290,17 @@ class Player {
         this.height = 50;
         this.velocity = { x: 0, y: 0 };
         this.speed = 5;
+        this.maxSpeed = 8;
+        this.acceleration = 1;
+        this.friction = {
+            ground: 0.85, // Ground friction
+            air: 0.95,    // Air friction
+            crouch: 0.75  // Crouch friction (slower movement)
+        };
         this.jumpForce = -12;
         this.maxJumpForce = -20;
         this.jumpTime = 0;
-        this.maxJumpTime = 250; // milliseconds
+        this.maxJumpTime = 250;
         this.isJumping = false;
         this.isCrouching = false;
         this.normalHeight = 50;
@@ -265,85 +311,205 @@ class Player {
         this.isReloading = false;
         this.maxJumps = 1;
         this.jumps = 0;
-        this.crouchSpeedMultiplier = 1;
+        this.crouchSpeedMultiplier = 0.6;
         this.health = 100;
         this.maxHealth = 100;
         this.isInvulnerable = false;
         this.invulnerabilityTime = 1000;
         this.lastHit = 0;
         this.borderRadius = 5;
+        
+        // Movement state
+        this.isOnGround = false;
+        this.movementDirection = 0;
+        this.airControl = 0.3; // Air control multiplier
+    }
+
+    applyImpulse(x, y) {
+        this.velocity.x += x;
+        this.velocity.y += y;
+    }
+
+    applyFriction() {
+        const frictionCoeff = this.isOnGround ? 
+            (this.isCrouching ? this.friction.crouch : this.friction.ground) : 
+            this.friction.air;
+        
+        this.velocity.x *= frictionCoeff;
+        
+        // Stop completely if velocity is very small
+        if (Math.abs(this.velocity.x) < 0.01) {
+            this.velocity.x = 0;
+        }
+    }
+
+    handleMovement(direction) {
+        this.movementDirection = direction;
+        
+        // Calculate acceleration based on current state
+        let accelerationMultiplier = this.isOnGround ? 1 : this.airControl;
+        if (this.isCrouching) {
+            accelerationMultiplier *= this.crouchSpeedMultiplier;
+        }
+
+        // Apply acceleration
+        const acceleration = this.acceleration * accelerationMultiplier * direction;
+        this.applyImpulse(acceleration, 0);
+
+        // Clamp horizontal velocity to max speed
+        const maxCurrentSpeed = this.maxSpeed * (this.isCrouching ? this.crouchSpeedMultiplier : 1);
+        if (Math.abs(this.velocity.x) > maxCurrentSpeed) {
+            this.velocity.x = Math.sign(this.velocity.x) * maxCurrentSpeed;
+        }
+    }
+
+    checkGroundCollision() {
+        // Check ground collision
+        if (this.y + this.height > canvas.height - 50) {
+            this.y = canvas.height - 50 - this.height;
+            this.velocity.y = 0;
+            this.isOnGround = true;
+            this.jumps = 0;
+            return true;
+        }
+
+        // Check platform collisions
+        for (const platform of gameObjects.platforms) {
+            if (this.x + this.width > platform.x && 
+                this.x < platform.x + platform.width &&
+                this.y + this.height > platform.y &&
+                this.y < platform.y + platform.height) {
+                
+                // Only count as ground if we're coming from above
+                if (this.y + this.height - this.velocity.y <= platform.y) {
+                    this.y = platform.y - this.height;
+                    this.velocity.y = 0;
+                    this.isOnGround = true;
+                    this.jumps = 0;
+                    return true;
+                }
+                // Side and bottom collisions
+                else if (this.x + this.width - this.velocity.x <= platform.x) {
+                    this.x = platform.x - this.width;
+                    this.velocity.x = 0;
+                } else if (this.x - this.velocity.x >= platform.x + platform.width) {
+                    this.x = platform.x + platform.width;
+                    this.velocity.x = 0;
+                } else {
+                    this.y = platform.y + platform.height;
+                    this.velocity.y = 0;
+                }
+            }
+        }
+        return false;
+    }
+
+    jump() {
+        if (this.jumps < this.maxJumps) {
+            this.velocity.y = this.jumpForce;
+            this.jumps++;
+            this.jumpTime = Date.now();
+            this.isOnGround = false;
+            playSound('jump');
+        }
     }
 
     update() {
         // Apply gravity
         this.velocity.y += 0.6;
-        
-        // Handle variable jump height
-        if (this.isJumping && keys['w']) {
-            const jumpDuration = Date.now() - this.jumpTime;
-            if (jumpDuration < this.maxJumpTime) {
-                this.velocity.y = Math.max(this.velocity.y - 1, this.maxJumpForce);
-            } else {
-                this.isJumping = false;
-            }
-        }
-        if (!keys['w']) {
-            this.isJumping = false;
-        }
-        
-        // Apply velocities
+
+        // Update position
         this.x += this.velocity.x;
         this.y += this.velocity.y;
 
-        // Screen wrapping
-        wrapPosition(this);
-
-        // Ground and platform collisions
-        if (this.y + this.height > canvas.height - 50) {
-            this.y = canvas.height - 50 - this.height;
-            this.velocity.y = 0;
-            this.jumps = 0;
+        // Screen wrapping for x-axis only
+        if (this.x + this.width < 0) {
+            this.x = canvas.width;
+        } else if (this.x > canvas.width) {
+            this.x = -this.width;
         }
 
-        gameObjects.platforms.forEach(platform => {
-            if (this.x + this.width > platform.x && this.x < platform.x + platform.width &&
-                this.y + this.height > platform.y && this.y < platform.y + platform.height) {
-                this.y = platform.y - this.height;
-                this.velocity.y = 0;
-                this.jumps = 0;
-            }
-        });
+        // Ground and platform collision check
+        if (!this.checkGroundCollision()) {
+            this.isOnGround = false;
+        }
 
-        // Movement friction
-        this.velocity.x *= 0.9;
+        // Apply friction
+        this.applyFriction();
+
+        // Update health bar
+        healthBarFill.style.width = (this.health / this.maxHealth * 100) + '%';
+        healthElement.textContent = Math.ceil(this.health);
+
+        // Handle invulnerability frames
+        if (this.isInvulnerable && Date.now() - this.lastHit > this.invulnerabilityTime) {
+            this.isInvulnerable = false;
+        }
     }
 
     draw() {
-        ctx.fillStyle = this.isInvulnerable ? '#FF6B6B' : '#00FF00';
-        ctx.strokeStyle = '#008000';
+        ctx.fillStyle = this.isInvulnerable ? '#AAA' : '#4CAF50';
+        ctx.strokeStyle = '#45a049';
         ctx.lineWidth = 2;
         
         ctx.beginPath();
         ctx.roundRect(this.x, this.y, this.width, this.height, this.borderRadius);
         ctx.fill();
         ctx.stroke();
+
+        // Draw gun
+        const angle = Math.atan2(
+            mouseY - (this.y + this.height/2),
+            mouseX - (this.x + this.width/2)
+        );
+        
+        ctx.save();
+        ctx.translate(this.x + this.width/2, this.y + this.height/2);
+        ctx.rotate(angle);
+        
+        ctx.fillStyle = this.gun.color;
+        ctx.fillRect(0, -2, 20, 4);
+        
+        ctx.restore();
+
+        // Draw ammo counter
+        ctx.fillStyle = '#FFF';
+        ctx.font = '12px Arial';
+        ctx.fillText(`${this.ammo}`, this.x + this.width/2 - 5, this.y - 5);
     }
 
     shoot(mouseX, mouseY) {
-        if (this.isReloading || Date.now() - this.lastShot < this.gun.fireRate || this.ammo <= 0) return;
+        if (this.isReloading || Date.now() - this.lastShot < this.gun.fireRate) return;
+        
+        if (this.ammo <= 0) {
+            this.reload();
+            return;
+        }
 
-        playSound('shoot');
+        const angle = Math.atan2(
+            mouseY - (this.y + this.height/2),
+            mouseX - (this.x + this.width/2)
+        );
 
-        const angle = Math.atan2(mouseY - (this.y + this.height/2), mouseX - (this.x + this.width/2));
+        // Add recoil impulse
+        const recoilForce = 0.5;
+        this.applyImpulse(
+            -Math.cos(angle) * recoilForce,
+            -Math.sin(angle) * recoilForce
+        );
+
+        // Create bullet with spread
+        const spread = (Math.random() - 0.5) * this.gun.spread;
+        const bulletAngle = angle + spread;
         
         if (this.gun.pellets) {
-            // Shotgun spread
             for (let i = 0; i < this.gun.pellets; i++) {
-                const spreadAngle = angle + (Math.random() - 0.5) * this.gun.spread;
+                const pelletSpread = (Math.random() - 0.5) * this.gun.spread;
+                const pelletAngle = angle + pelletSpread;
                 gameObjects.bullets.push(new Bullet(
                     this.x + this.width/2,
                     this.y + this.height/2,
-                    spreadAngle,
+                    pelletAngle,
                     this.gun
                 ));
             }
@@ -351,49 +517,37 @@ class Player {
             gameObjects.bullets.push(new Bullet(
                 this.x + this.width/2,
                 this.y + this.height/2,
-                angle + (Math.random() - 0.5) * (this.gun.spread || 0),
+                bulletAngle,
                 this.gun
             ));
         }
 
-        particleSystem.createBulletTrail(
-            this.x + this.width/2,
-            this.y + this.height/2,
-            this.gun.particleColor
-        );
-
         this.ammo--;
         this.lastShot = Date.now();
-
-        if (this.ammo <= 0) this.reload();
+        playSound('shoot');
     }
 
     reload() {
-        if (this.isReloading) return;
-        this.isReloading = true;
-        setTimeout(() => {
-            this.ammo = this.gun.magazineSize;
-            this.isReloading = false;
-        }, this.gun.reloadSpeed);
+        if (!this.isReloading) {
+            this.isReloading = true;
+            setTimeout(() => {
+                this.ammo = this.gun.magazineSize;
+                this.isReloading = false;
+            }, this.gun.reloadSpeed);
+        }
     }
 
     takeDamage(amount) {
-        const now = Date.now();
-        if (this.isInvulnerable && now - this.lastHit < this.invulnerabilityTime) {
-            return;
+        if (!this.isInvulnerable) {
+            this.health = Math.max(0, this.health - amount);
+            this.isInvulnerable = true;
+            this.lastHit = Date.now();
+            
+            // Knockback on damage
+            const knockbackForce = 3;
+            this.velocity.y = -knockbackForce;
+            this.velocity.x = (this.x < canvas.width/2 ? knockbackForce : -knockbackForce);
         }
-
-        this.health = Math.max(0, this.health - amount);
-        this.lastHit = now;
-        this.isInvulnerable = true;
-
-        // Update health display
-        healthElement.textContent = this.health;
-        healthBarFill.style.width = (this.health / this.maxHealth * 100) + '%';
-
-        setTimeout(() => {
-            this.isInvulnerable = false;
-        }, this.invulnerabilityTime);
     }
 }
 
@@ -590,39 +744,211 @@ class Platform {
     }
 }
 
+// Damage number class
+class DamageNumber {
+    constructor(x, y, damage) {
+        this.x = x;
+        this.y = y;
+        this.damage = damage;
+        this.alpha = 1;
+        this.velocity = -2;
+        this.lifetime = 60; // frames
+    }
+
+    update() {
+        this.y += this.velocity;
+        this.lifetime--;
+        this.alpha = this.lifetime / 60;
+        return this.lifetime > 0;
+    }
+
+    draw(ctx) {
+        ctx.save();
+        ctx.globalAlpha = this.alpha;
+        ctx.fillStyle = '#ff4444';
+        ctx.font = 'bold 20px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.damage, this.x, this.y);
+        ctx.restore();
+    }
+}
+
+// Available upgrades
+const upgrades = {
+    maxHealth: {
+        name: "Max Health",
+        description: "Increase maximum health by 25",
+        apply: (player) => {
+            player.maxHealth += 25;
+            player.health = player.maxHealth;
+            healthElement.textContent = player.health;
+        }
+    },
+    speed: {
+        name: "Movement Speed",
+        description: "Increase movement speed by 20%",
+        apply: (player) => {
+            player.speed *= 1.2;
+        }
+    },
+    jumpForce: {
+        name: "Jump Power",
+        description: "Increase jump force by 15%",
+        apply: (player) => {
+            player.jumpForce *= 1.15;
+            player.maxJumpForce *= 1.15;
+        }
+    },
+    gunDamage: {
+        name: "Gun Damage",
+        description: "Increase gun damage by 25%",
+        apply: (player) => {
+            player.gun.damage = Math.ceil(player.gun.damage * 1.25);
+        }
+    },
+    fireRate: {
+        name: "Fire Rate",
+        description: "Decrease fire rate cooldown by 20%",
+        apply: (player) => {
+            player.gun.fireRate = Math.max(50, Math.floor(player.gun.fireRate * 0.8));
+        }
+    },
+    magazineSize: {
+        name: "Magazine Size",
+        description: "Increase magazine size by 50%",
+        apply: (player) => {
+            player.gun.magazineSize = Math.ceil(player.gun.magazineSize * 1.5);
+            player.ammo = player.gun.magazineSize;
+        }
+    },
+    doubleJump: {
+        name: "Double Jump",
+        description: "Gain ability to jump twice",
+        apply: (player) => {
+            player.maxJumps = 2;
+        },
+        condition: (player) => player.maxJumps === 1
+    }
+};
+
 // Initialize game
 function init() {
-    gameObjects.player = new Player(canvas.width/2, canvas.height - 100);
-    spawnZombies();
+    // Reset game state
+    level = 1;
+    score = 0;
+    isGameRunning = true;
+    selectedUpgrade = null;
+    isUpgradeMenuActive = false;
+    gameStarted = true;
+    damageNumbers = [];
+    
+    // Reset UI
+    levelElement.textContent = level;
+    scoreElement.textContent = score;
+    healthElement.textContent = '100';
+    healthBarFill.style.width = '100%';
+    upgradeMenu.style.display = 'none';
+    tooltip.style.display = 'none';
+    
+    // Reset game objects
+    gameObjects = {
+        player: new Player(canvas.width/2, canvas.height - 100),
+        zombies: [],
+        bullets: [],
+        droppedGuns: [],
+        platforms: [],
+        powerups: []
+    };
+
+    // Create platforms
     gameObjects.platforms.push(new Platform(PLATFORMS.MAIN.x, PLATFORMS.MAIN.y, PLATFORMS.MAIN.width, PLATFORMS.MAIN.height));
     gameObjects.platforms.push(new Platform(PLATFORMS.LEFT.x, PLATFORMS.LEFT.y, PLATFORMS.LEFT.width, PLATFORMS.LEFT.height));
     gameObjects.platforms.push(new Platform(PLATFORMS.RIGHT.x, PLATFORMS.RIGHT.y, PLATFORMS.RIGHT.width, PLATFORMS.RIGHT.height));
+    
+    // Spawn initial zombies
+    spawnZombies();
 }
+
+// Show upgrade menu function
+function showUpgradeMenu() {
+    isUpgradeMenuActive = true;
+    upgradeMenu.style.display = 'block';
+    upgradeGrid.innerHTML = '';
+    selectedUpgrade = null;
+    confirmUpgradeBtn.disabled = true;
+
+    // Get three random unique upgrades
+    const availableUpgrades = Object.entries(upgrades)
+        .filter(([_, upgrade]) => !upgrade.condition || upgrade.condition(gameObjects.player))
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 3);
+
+    availableUpgrades.forEach(([key, upgrade]) => {
+        const upgradeElement = document.createElement('div');
+        upgradeElement.className = 'upgrade-item';
+        upgradeElement.innerHTML = `
+            <h3>${upgrade.name}</h3>
+            <p>${upgrade.description}</p>
+        `;
+        upgradeElement.addEventListener('click', () => {
+            document.querySelectorAll('.upgrade-item').forEach(item => item.classList.remove('selected'));
+            upgradeElement.classList.add('selected');
+            selectedUpgrade = key;
+            confirmUpgradeBtn.disabled = false;
+        });
+        upgradeGrid.appendChild(upgradeElement);
+    });
+}
+
+confirmUpgradeBtn.addEventListener('click', () => {
+    if (selectedUpgrade && upgrades[selectedUpgrade]) {
+        upgrades[selectedUpgrade].apply(gameObjects.player);
+        upgradeMenu.style.display = 'none';
+        isUpgradeMenuActive = false;
+        isGameRunning = true;
+        spawnZombies();
+        requestAnimationFrame(gameLoop); // Restart game loop
+    }
+});
 
 // Spawn zombies for current level
 function spawnZombies() {
-    const zombieCount = level * 2;
+    const zombieCount = Math.min(level * 2, 20); // Cap at 20 zombies per level
+    const spawnPoints = [
+        { x: 50, y: canvas.height - 100 },
+        { x: canvas.width - 50, y: canvas.height - 100 },
+        { x: canvas.width/2, y: canvas.height - 300 }
+    ];
+
     for (let i = 0; i < zombieCount; i++) {
-        const x = Math.random() * (canvas.width - 30);
-        gameObjects.zombies.push(new Zombie(x, canvas.height - 100));
+        const spawnPoint = spawnPoints[Math.floor(Math.random() * spawnPoints.length)];
+        const x = spawnPoint.x + (Math.random() - 0.5) * 100; // Add some random offset
+        const y = spawnPoint.y;
+        gameObjects.zombies.push(new Zombie(x, y));
     }
 }
 
 // Input handling
 const keys = {};
-window.addEventListener('keydown', e => keys[e.key] = true);
-window.addEventListener('keyup', e => keys[e.key] = false);
+window.addEventListener('keydown', e => {
+    keys[e.key.toLowerCase()] = true;
+    if (e.key === 'r' && !isGameRunning) {
+        startGame();
+    }
+});
+window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
 canvas.addEventListener('mousedown', e => {
+    if (!gameStarted || !isGameRunning) return;
     const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
+    mouseX = e.clientX - rect.left;
+    mouseY = e.clientY - rect.top;
     gameObjects.player.shoot(mouseX, mouseY);
 });
 
 // Game loop
 function gameLoop() {
-    if (!isGameRunning) return;
+    if (!gameStarted || !isGameRunning) return;
     
     // Clear canvas
     ctx.fillStyle = '#333';
@@ -635,14 +961,20 @@ function gameLoop() {
     // Draw platforms
     gameObjects.platforms.forEach(platform => platform.draw());
 
+    // Update and draw damage numbers
+    damageNumbers = damageNumbers.filter(number => {
+        const alive = number.update();
+        if (alive) number.draw(ctx);
+        return alive;
+    });
+
     // Handle player movement
-    if (keys['a']) gameObjects.player.velocity.x = -gameObjects.player.speed * gameObjects.player.crouchSpeedMultiplier;
-    if (keys['d']) gameObjects.player.velocity.x = gameObjects.player.speed * gameObjects.player.crouchSpeedMultiplier;
-    if (keys['w'] && gameObjects.player.jumps < gameObjects.player.maxJumps) {
-        playSound('jump');
-        gameObjects.player.velocity.y = gameObjects.player.jumpForce;
-        gameObjects.player.jumps++;
-        gameObjects.player.jumpTime = Date.now();
+    if (keys['a']) gameObjects.player.handleMovement(-1);
+    if (keys['d']) gameObjects.player.handleMovement(1);
+    if (!keys['a'] && !keys['d']) gameObjects.player.handleMovement(0);
+    
+    if (keys['w'] && !gameObjects.player.isJumping) {
+        gameObjects.player.jump();
     }
     if (keys['s']) {
         gameObjects.player.isCrouching = true;
@@ -654,10 +986,7 @@ function gameLoop() {
 
     // Update game objects
     gameObjects.player.update();
-    gameObjects.zombies = gameObjects.zombies.filter(zombie => {
-        zombie.update();
-        return zombie.health > 0;
-    });
+    gameObjects.zombies.forEach(zombie => zombie.update());
     gameObjects.bullets.forEach(bullet => bullet.update());
     particleSystem.update();
 
@@ -666,31 +995,43 @@ function gameLoop() {
         if (bullet.isOutOfRange()) return false;
 
         let hit = false;
-        gameObjects.zombies = gameObjects.zombies.filter(zombie => {
+        for (let i = gameObjects.zombies.length - 1; i >= 0; i--) {
+            const zombie = gameObjects.zombies[i];
             if (bullet.x > zombie.x && bullet.x < zombie.x + zombie.width &&
                 bullet.y > zombie.y && bullet.y < zombie.y + zombie.height) {
+                // Create damage number
+                damageNumbers.push(new DamageNumber(
+                    zombie.x + zombie.width/2,
+                    zombie.y,
+                    bullet.gun.damage
+                ));
+                
                 if (zombie.takeDamage(bullet.gun.damage)) {
-                    gameObjects.zombies = gameObjects.zombies.filter(z => z !== zombie);
+                    gameObjects.zombies.splice(i, 1);
+                    score += 100;
+                    scoreElement.textContent = score;
                 }
                 hit = true;
-                return zombie.health > 0;
+                break;
             }
-            return true;
-        });
-        // Only remove bullets if they hit something, not for going off screen
+        }
         return !hit;
     });
 
+    // Draw game objects
+    gameObjects.player.draw();
+    gameObjects.zombies.forEach(zombie => zombie.draw());
+    gameObjects.bullets.forEach(bullet => bullet.draw());
+    particleSystem.draw(ctx);
+    gameObjects.droppedGuns.forEach(gun => gun.draw());
+
     // Check for gun pickups
     gameObjects.droppedGuns = gameObjects.droppedGuns.filter(gun => {
-        if (gameObjects.player.x < gun.x + gun.width && gameObjects.player.x + gameObjects.player.width > gun.x &&
-            gameObjects.player.y < gun.y + gun.height && gameObjects.player.y + gameObjects.player.height > gun.y) {
-            if (keys['e']) {
-                playSound('pickup');
-                gameObjects.player.gun = gun.gun;
-                gameObjects.player.ammo = gun.gun.magazineSize;
-                return false;
-            }
+        if (gameObjects.player.x < gun.x + gun.width && 
+            gameObjects.player.x + gameObjects.player.width > gun.x &&
+            gameObjects.player.y < gun.y + gun.height && 
+            gameObjects.player.y + gameObjects.player.height > gun.y) {
+            
             // Show tooltip
             tooltip.style.display = 'block';
             tooltip.style.left = `${gun.x + canvas.getBoundingClientRect().left}px`;
@@ -708,28 +1049,18 @@ function gameLoop() {
         return true;
     });
 
-    // Draw game objects
-    gameObjects.player.draw();
-    gameObjects.zombies.forEach(zombie => zombie.draw());
-    gameObjects.bullets.forEach(bullet => bullet.draw());
-    particleSystem.draw(ctx);
-    gameObjects.droppedGuns.forEach(gun => gun.draw());
-
-    // Draw level counter
-    ctx.fillStyle = '#FFF';
-    ctx.font = '20px Arial';
-    ctx.fillText(`Level: ${level}`, canvas.width - 100, 30);
-
     // Level progression
     if (gameObjects.zombies.length === 0) {
         level++;
         levelElement.textContent = level;
-        spawnZombies();
+        isGameRunning = false;
+        showUpgradeMenu();
     }
 
     // Game over check
     if (gameObjects.player.health <= 0) {
         isGameRunning = false;
+        gameStarted = false;
         ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = '#FF0000';
@@ -745,19 +1076,21 @@ function gameLoop() {
     requestAnimationFrame(gameLoop);
 }
 
-// Add restart functionality
-window.addEventListener('keydown', e => {
-    if (e.key === 'r' && !isGameRunning) {
-        level = 1;
-        score = 0;
-        levelElement.textContent = level;
-        scoreElement.textContent = score;
-        isGameRunning = true;
-        init();
-        gameLoop();
-    }
-});
+// Start game function
+function startGame() {
+    // Initialize audio on user interaction
+    initializeAudio();
+    
+    // Hide start screen and show canvas
+    startScreen.style.display = 'none';
+    canvas.style.display = 'block';
+    
+    // Initialize game
+    init();
+    
+    // Start game loop
+    requestAnimationFrame(gameLoop);
+}
 
-// Start game
-init();
-gameLoop();
+// Start button click handler
+startButton.addEventListener('click', startGame);

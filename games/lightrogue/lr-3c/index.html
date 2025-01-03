@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- Enhanced Security Headers -->
+    <meta http-equiv="Content-Security-Policy" 
+          content="default-src 'self'; 
+                   script-src 'self' 'unsafe-inline' 'unsafe-eval';
+                   style-src 'self' 'unsafe-inline'; 
+                   img-src 'self' data: blob:; 
+                   connect-src 'self';
+                   form-action 'none';
+                   base-uri 'none';
+                   object-src 'none';">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="Referrer-Policy" content="no-referrer">
+    <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin">
+    <meta http-equiv="Cross-Origin-Embedder-Policy" content="require-corp">
+    <meta http-equiv="Cross-Origin-Resource-Policy" content="same-origin">
+    
+    <title>Light Rogue</title>
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #6200EA;
+            --secondary-color: #00BFA5;
+            --accent-color: #FF4081;
+            --background-color: #1A1A1A;
+            --text-color: #FFFFFF;
+            --glow: 0 0 10px var(--accent-color);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Baloo 2', cursive;
+        }
+        
+        body {
+            margin: 0;
+            background: var(--background-color);
+            background-clip: padding-box;
+            -webkit-background-clip: padding-box;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: var(--text-color);
+        }
+        
+        canvas {
+            border: 3px solid var(--primary-color);
+            box-shadow: 0 0 20px var(--primary-color);
+            display: none;
+            border-radius: 10px;
+            transition: transform 0.3s ease;
+        }
+        
+        canvas:hover {
+            transform: scale(1.01);
+        }
+        
+        #startScreen {
+            text-align: center;
+            background: rgba(26, 26, 26, 0.95);
+            padding: 3rem;
+            border-radius: 20px;
+            border: 3px solid var(--primary-color);
+            box-shadow: 0 0 30px var(--primary-color);
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+        
+        #startScreen h1 {
+            font-size: 4rem;
+            margin-bottom: 2rem;
+            text-transform: uppercase;
+            background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: var(--glow);
+            font-weight: 800;
+            letter-spacing: 2px;
+        }
+        
+        .game-ui {
+            position: fixed;
+            padding: 15px;
+            background: rgba(26, 26, 26, 0.85);
+            border-radius: 15px;
+            border: 2px solid var(--primary-color);
+            backdrop-filter: blur(5px);
+            transition: all 0.3s ease;
+        }
+        
+        .game-ui:hover {
+            transform: scale(1.02);
+            box-shadow: 0 0 15px var(--primary-color);
+        }
+        
+        #powerups {
+            top: 20px;
+            left: 20px;
+        }
+        
+        #stats {
+            top: 20px;
+            right: 20px;
+        }
+        
+        .health-bar {
+            width: 200px;
+            height: 25px;
+            background: rgba(26, 26, 26, 0.8);
+            border: 2px solid var(--primary-color);
+            border-radius: 15px;
+            overflow: hidden;
+            margin-top: 10px;
+            position: relative;
+        }
+        
+        .health-bar-fill {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+            transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        button {
+            background: var(--primary-color);
+            color: var(--text-color);
+            border: none;
+            padding: 12px 25px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        button:before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                120deg,
+                transparent,
+                rgba(255, 255, 255, 0.3),
+                transparent
+            );
+            transition: 0.5s;
+        }
+        
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(98, 0, 234, 0.4);
+        }
+        
+        button:hover:before {
+            left: 100%;
+        }
+        
+        .controls {
+            margin-top: 30px;
+            padding: 25px;
+            border: 2px solid var(--primary-color);
+            border-radius: 15px;
+            background: rgba(26, 26, 26, 0.8);
+            backdrop-filter: blur(5px);
+        }
+        
+        #loadingText {
+            font-size: 1.5rem;
+            margin: 20px 0;
+            color: var(--secondary-color);
+            font-weight: 600;
+        }
+        
+        #tooltip {
+            position: absolute;
+            background: rgba(26, 26, 26, 0.95);
+            color: var(--text-color);
+            padding: 15px;
+            border-radius: 10px;
+            border: 2px solid var(--secondary-color);
+            box-shadow: 0 0 10px var(--secondary-color);
+            backdrop-filter: blur(5px);
+            display: none;
+            pointer-events: none;
+            z-index: 1000;
+            font-size: 1.1rem;
+        }
+        
+        .achievement {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100%);
+            background: rgba(26, 26, 26, 0.95);
+            color: var(--text-color);
+            padding: 15px 30px;
+            border-radius: 15px;
+            border: 2px solid var(--accent-color);
+            box-shadow: 0 0 20px var(--accent-color);
+            z-index: 2000;
+            text-align: center;
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .achievement.show {
+            transform: translateX(-50%) translateY(0);
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .pulse {
+            animation: pulse 0.5s ease-in-out;
+        }
+        
+        #error-boundary {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(26, 26, 26, 0.95);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            padding: 20px;
+            border-radius: 20px;
+            border: 3px solid var(--primary-color);
+            box-shadow: 0 0 30px var(--primary-color);
+        }
+        
+        .error-content {
+            text-align: center;
+        }
+        
+        #error-message {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="error-boundary" hidden>
+        <div class="error-content">
+            <h2>Oops! Something went wrong</h2>
+            <p id="error-message">An error occurred while loading the game.</p>
+            <button onclick="location.reload()">Retry</button>
+        </div>
+    </div>
+    
+    <div id="game-container">
+        <div id="startScreen">
+            <h1>Light Rogue</h1>
+            <div id="loadingText">Loading assets... <span id="loadingProgress">0</span>%</div>
+            <div class="controls" style="display: none;">
+                <h3>Controls</h3>
+                <p>WASD - Move and Jump</p>
+                <p>Mouse - Aim and Shoot</p>
+                <p>E - Pick up weapons</p>
+                <p>R - Reload</p>
+            </div>
+            <button id="startButton" style="display: none;">Start Game</button>
+        </div>
+        
+        <canvas id="gameCanvas"></canvas>
+        
+        <div id="gameUI">
+            <div id="stats">
+                <div>Level: <span id="level">1</span> Score: <span id="score">0</span></div>
+                <div>Health: <span id="health">100</span></div>
+                <div class="health-bar">
+                    <div class="health-bar-fill"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="tooltip"></div>
+    <div id="powerups"></div>
+    <div id="stats">
+        <div id="gameUI">Level: <span id="level">1</span> Score: <span id="score">0</span></div>
+        <div>Health: <span id="health">100</span></div>
+        <div class="health-bar">
+            <div class="health-bar-fill"></div>
+        </div>
+    </div>
+    <div id="upgradeMenu">
+        <h2>Level Complete! Choose an Upgrade</h2>
+        <div class="upgrade-grid">
+            <!-- Upgrade items will be added dynamically -->
+        </div>
+        <button id="confirmUpgrade" disabled>Confirm Upgrade</button>
+    </div>
+    <div id="credits">
+        Sound by <a href="https://ZapSplat.com" target="_blank">ZapSplat</a>
+    </div>
+    <!-- Audio elements -->
+    <audio id="jumpSound" src="../assets/sound/zapsplat_multimedia_game_sound_arcade_jump_112217.mp3" preload="auto"></audio>
+    <audio id="shootSound" src="../assets/sound/zapsplat_cartoon_anime_laser_blast_small_92470.mp3" preload="auto"></audio>
+    <audio id="zombieSound" src="../assets/sound/horror_monster_ill_or_dying_moan.mp3" preload="auto"></audio>
+    <script>
+        // Global error handler
+        window.onerror = function(msg, url, lineNo, columnNo, error) {
+            console.error('Error: ', msg, '\nURL: ', url, '\nLine: ', lineNo, '\nColumn: ', columnNo, '\nError object: ', error);
+            
+            const errorBoundary = document.getElementById('error-boundary');
+            const gameContainer = document.getElementById('game-container');
+            const errorMessage = document.getElementById('error-message');
+            
+            if (errorBoundary && gameContainer && errorMessage) {
+                errorBoundary.hidden = false;
+                gameContainer.hidden = true;
+                errorMessage.textContent = msg || 'An error occurred while loading the game.';
+            }
+            
+            return false;
+        };
+
+        // Performance monitoring
+        const performanceMonitor = {
+            startTime: 0,
+            
+            start() {
+                this.startTime = performance.now();
+            },
+            
+            end() {
+                const endTime = performance.now();
+                const duration = endTime - this.startTime;
+                
+                if (duration > 100) {
+                    console.warn('Performance warning: Operation took', duration, 'ms');
+                }
+                
+                return duration;
+            }
+        };
+        
+        // Initialize monitoring
+        performanceMonitor.start();
+    </script>
+    <script type="module">
+        // Generate runtime nonce for inline scripts
+        const nonce = crypto.getRandomValues(new Uint8Array(16)).reduce((acc, val) => acc + val.toString(16).padStart(2, '0'), '');
+        document.querySelector('meta[http-equiv="Content-Security-Policy"]').setAttribute('content', 
+            document.querySelector('meta[http-equiv="Content-Security-Policy"]').getAttribute('content').replace('${nonce}', nonce));
+    </script>
+    <script type="module" nonce="${nonce}">
+        // Create and load all game images before starting
+        const enemyImages = [];
+        const gunImages = {
+            pistol: [],
+            shotgun: [],
+            smg: [],
+            assaultrifle: [],
+            sniperrifle: []
+        };
+
+        let loadedImages = 0;
+        const totalImages = 39 + 33; // 39 enemy images + 33 gun images
+        
+        function updateLoadingProgress() {
+            loadedImages++;
+            const progress = Math.floor((loadedImages / totalImages) * 100);
+            document.getElementById('loadingProgress').textContent = progress;
+            
+            if (loadedImages === totalImages) {
+                document.getElementById('loadingText').style.display = 'none';
+                document.getElementById('startButton').style.display = 'block';
+                document.querySelector('.controls').style.display = 'block';
+            }
+        }
+
+        function loadImage(src) {
+            const img = new Image();
+            img.onload = updateLoadingProgress;
+            img.onerror = () => {
+                console.warn('Failed to load:', src);
+                updateLoadingProgress(); // Still count errors to avoid getting stuck
+            };
+            img.src = src;
+            return img;
+        }
+
+        // Load enemy images
+        const enemyTypes = {
+            'A': [1,2,3,4,5,6,7,8,9,10],
+            'B': [1,2,3,4,5,6,7,8,9,10],
+            'C': [1,2,3,5,6,7,8,9,10], // C4 is missing
+            'D': [1,2,3,4,5,6,7,8,9,10]
+        };
+
+        for (const [color, numbers] of Object.entries(enemyTypes)) {
+            for (const num of numbers) {
+                const img = loadImage(`../assets/enemies/Undead Monsters Color ${color}${num}.png`);
+                enemyImages.push(img);
+            }
+        }
+
+        // Load gun images
+        const gunTypes = {
+            pistol: 12,
+            shotgun: 7,
+            smg: 2,
+            assaultrifle: 6,
+            sniperrifle: 6
+        };
+
+        for (const [type, count] of Object.entries(gunTypes)) {
+            for (let i = 1; i <= count; i++) {
+                const img = loadImage(`../assets/guns/${type}${i}.png`);
+                gunImages[type].push(img);
+            }
+        }
+
+        // Make images available to game.js
+        window.gameAssets = {
+            enemyImages,
+            gunImages
+        };
+
+        // Initialize error handling
+        window.onerror = function(msg, url, lineNo, columnNo, error) {
+            document.getElementById('error-boundary').hidden = false;
+            document.getElementById('game-container').hidden = true;
+            console.error('Error: ', msg, url, lineNo, columnNo, error);
+            return false;
+        };
+
+        // Secure imports with dynamic import() for better tree-shaking
+        try {
+            const gameController = await import('./gameController.js?v=' + new Date().getTime());
+            const game = await import('./game.js?v=' + new Date().getTime());
+            
+            // Initialize game with security context
+            const securityContext = {
+                timestamp: Date.now(),
+                nonce: nonce,
+                verifyIntegrity: function(data) {
+                    // Implement integrity checks for game data
+                    return typeof data === 'object' && 
+                           !Array.isArray(data) && 
+                           Object.keys(data).every(key => typeof key === 'string');
+                }
+            };
+
+            // Initialize controller with security context
+            const controller = new gameController.default(securityContext);
+            
+            // Initialize game with security context
+            game.default.init(controller, securityContext);
+            
+            // Remove loading state
+            document.getElementById('game-container').dataset.state = 'ready';
+        } catch (error) {
+            console.error('Failed to initialize game:', error);
+            document.getElementById('error-boundary').hidden = false;
+            document.getElementById('game-container').hidden = true;
+        }
+    </script>
+    <script src="finalboss.js" defer></script>
+    <script src="test.js" defer></script>
+</body>
+</html>
