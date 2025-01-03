@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>2D Platformer</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        canvas {
+            border: 2px solid #333;
+        }
+        #tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+            font-family: Arial, sans-serif;
+            z-index: 1000;
+        }
+        #powerups {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        #stats {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: right;
+        }
+        .health-bar {
+            width: 200px;
+            height: 20px;
+            background: #333;
+            margin-top: 5px;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .health-bar-fill {
+            height: 100%;
+            background: #0f0;
+            transition: width 0.2s ease;
+            border-radius: 10px;
+        }
+        #credits {
+            position: absolute;
+            bottom: 10px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+        }
+        #credits a {
+            color: #4CAF50;
+            text-decoration: none;
+        }
+        #credits a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div id="tooltip"></div>
+    <div id="powerups"></div>
+    <div id="stats">
+        <div>Level: <span id="level">1</span></div>
+        <div>Score: <span id="score">0</span></div>
+        <div>Health: <span id="health">100</span></div>
+        <div class="health-bar">
+            <div class="health-bar-fill"></div>
+        </div>
+    </div>
+    <div id="credits">
+        Sound by <a href="https://ZapSplat.com" target="_blank">ZapSplat</a>
+    </div>
+    <!-- Audio elements -->
+    <audio id="jumpSound" src="../assets/sound/zapsplat_multimedia_game_sound_arcade_jump_112217.mp3" preload="auto"></audio>
+    <audio id="shootSound" src="../assets/sound/zapsplat_cartoon_anime_laser_blast_small_92470.mp3" preload="auto"></audio>
+    <audio id="zombieSound" src="../assets/sound/horror_monster_ill_or_dying_moan.mp3" preload="auto"></audio>
+    <script src="game.js"></script>
+</body>
+</html>
