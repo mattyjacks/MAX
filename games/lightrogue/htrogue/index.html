@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>2D Platformer</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        canvas {
+            border: 2px solid #333;
+        }
+        #tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+            font-family: Arial, sans-serif;
+            z-index: 1000;
+        }
+        #powerups {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div id="tooltip"></div>
+    <div id="powerups"></div>
+    <!-- Audio elements -->
+    <audio id="jumpSound" src="data:audio/wav;base64,UklGRl9vAAAWQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU" preload="auto"></audio>
+    <audio id="shootSound" src="data:audio/wav;base64,UklGRl9vAAAWQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU" preload="auto"></audio>
+    <audio id="zombieSound" src="data:audio/wav;base64,UklGRl9vAAAWQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU" preload="auto"></audio>
+    <audio id="pickupSound" src="data:audio/wav;base64,UklGRl9vAAAWQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU" preload="auto"></audio>
+    <script src="game.js"></script>
+</body>
+</html>
