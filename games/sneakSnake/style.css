@@ -5,7 +5,7 @@ body {
     justify-content: center;
     align-items: center;
     min-height: 100vh;
-    background: #1a1a1a;
+    background: #1a1a1a url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="%231a1a1a"/><path d="M0,0 C30,20 70,20 100,0 V100 H0" fill="%23143601" opacity="0.3"/><path d="M20,0 C50,30 50,70 20,100 H0 V0" fill="%23195401" opacity="0.2"/><path d="M80,0 C50,30 50,70 80,100 H100 V0" fill="%23195401" opacity="0.2"/></svg>');
     font-family: Arial, sans-serif;
 }
 
@@ -14,8 +14,9 @@ body {
 }
 
 canvas {
-    background: #000;
-    border: 2px solid #333;
+    background: rgba(21, 54, 1, 0.8);
+    border: 2px solid #2a5902;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
 }
 
 .hud {

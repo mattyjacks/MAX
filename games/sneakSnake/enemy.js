@@ -4,13 +4,13 @@ class Enemy {
         this.y = y;
         this.radius = 15;
         this.angle = Math.random() * Math.PI * 2;
-        this.speed = 0.5;
-        this.visionRange = 150;
-        this.visionAngle = Math.PI / 3;
-        this.patrolRadius = 100;
+        this.speed = 0.3;
+        this.visionRange = 100;
+        this.visionAngle = Math.PI / 4;
+        this.patrolRadius = 80;
         this.centerX = x;
         this.centerY = y;
-        this.rotationSpeed = 0.02;
+        this.rotationSpeed = 0.015;
     }
 
     update(canvas) {

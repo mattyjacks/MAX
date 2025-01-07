@@ -3,13 +3,13 @@ class Snake {
         this.segments = [{x, y}];
         this.direction = {x: 1, y: 0};
         this.nextDirection = {x: 1, y: 0};
-        this.speed = 2;
+        this.speed = 1.5;
         this.size = 15;
         this.stealthMode = false;
         this.stealthEnergy = 100;
-        this.stealthDrain = 0.5;
-        this.stealthRecharge = 0.2;
-        this.growAmount = 3;
+        this.stealthDrain = 0.3;
+        this.stealthRecharge = 0.4;
+        this.growAmount = 1;
         this.growing = 0;
     }
 
@@ -86,7 +86,8 @@ class Snake {
 
     checkSelfCollision() {
         const head = this.segments[0];
-        return this.segments.slice(1).some(segment =>
+        // Start checking from index 2 to avoid false collisions with the neck
+        return this.segments.slice(2).some(segment =>
             Math.hypot(segment.x - head.x, segment.y - head.y) < this.size
         );
     }
